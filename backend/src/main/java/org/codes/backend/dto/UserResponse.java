@@ -12,4 +12,7 @@ public record UserResponse(
         String coordinatorId,
         String adminId
 ) {
+    public Integer getID(){
+        return id;
+    }
 }

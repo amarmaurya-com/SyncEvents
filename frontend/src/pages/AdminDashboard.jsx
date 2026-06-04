@@ -80,32 +80,43 @@ export default function AdminDashboard() {
     setError("");
 
     try {
-      const [
-        { user },
-        eventsData,
-        adminsData,
-        coordinatorsData,
-        overviewData,
-        eventsReportData,
-        coordinatorAnalyticsData,
-      ] =
-        await Promise.all([
-          getCurrentUser(),
-          getEvents(),
-          getAdmins(),
-          getCoordinators(),
-          getOverviewAnalytics(),
-          getAdminEventsReport(),
-          getAdminCoordinatorAnalytics(),
-        ]);
+      const { user } = await getCurrentUser();
 
       if (user.role !== "admin") {
         navigate("/login", { replace: true });
         return;
       }
 
+      const [
+        eventsResult,
+        adminsResult,
+        coordinatorsResult,
+        overviewResult,
+        eventsReportResult,
+        coordinatorAnalyticsResult,
+      ] = await Promise.allSettled([
+        getEvents(),
+        getAdmins(),
+        getCoordinators(),
+        getOverviewAnalytics(),
+        getAdminEventsReport(),
+        getAdminCoordinatorAnalytics(),
+      ]);
+
+      const eventsData = eventsResult.status === "fulfilled" ? eventsResult.value : [];
+      const adminsData = adminsResult.status === "fulfilled" ? adminsResult.value : { users: [] };
+      const coordinatorsData =
+        coordinatorsResult.status === "fulfilled" ? coordinatorsResult.value : { users: [] };
+      const overviewData = overviewResult.status === "fulfilled" ? overviewResult.value : null;
+      const eventsReportData =
+        eventsReportResult.status === "fulfilled" ? eventsReportResult.value : { events: [] };
+      const coordinatorAnalyticsData =
+        coordinatorAnalyticsResult.status === "fulfilled"
+          ? coordinatorAnalyticsResult.value
+          : { coordinators: [] };
+
       setCurrentUser(user);
-      setEvents(eventsData.events || []);
+      setEvents(Array.isArray(eventsData) ? eventsData : eventsData.events || []);
       setAdmins(adminsData.users || []);
       setCoordinators(coordinatorsData.users || []);
       setOverview(overviewData);
