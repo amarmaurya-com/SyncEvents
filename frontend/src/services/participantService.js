@@ -1,8 +1,32 @@
 import api from "./api.js";
 
+const STATUS_FROM_API = {
+  DRAFT: "draft",
+  PUBLISHED: "open",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+};
+
+const lower = (value) => (typeof value === "string" ? value.toLowerCase() : value);
+
+const normalizeEvent = (event) =>
+  event
+    ? {
+        ...event,
+        eventType: lower(event.eventType),
+        participationType: lower(event.participationType),
+        status: STATUS_FROM_API[event.status] || lower(event.status),
+      }
+    : event;
+
 export const getAvailableEvents = async () => {
   const { data } = await api.get("/events");
-  return data;
+  return Array.isArray(data)
+    ? data.map(normalizeEvent)
+    : {
+        ...data,
+        events: (data?.events || []).map(normalizeEvent),
+      };
 };
 
 export const getMyRegistrations = async () => {

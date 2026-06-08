@@ -1,5 +1,7 @@
 package org.codes.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public record UserResponse(
         Integer id,
         String name,
@@ -12,7 +14,8 @@ public record UserResponse(
         String coordinatorId,
         String adminId
 ) {
-    public Integer getID(){
+    @JsonProperty("_id")
+    public Integer getIdForClient() {
         return id;
     }
 }

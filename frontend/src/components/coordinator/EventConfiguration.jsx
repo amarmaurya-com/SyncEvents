@@ -27,6 +27,14 @@ const formatDateInputValue = (value) => {
   ].join("-");
 };
 
+const toDateTimeValue = (value) => (value ? `${value}T00:00:00` : null);
+
+const parsePrizes = (value) =>
+  value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 export default function EventConfiguration({
   event,
   workspace,
@@ -35,6 +43,7 @@ export default function EventConfiguration({
   actionLoading = false,
 }) {
   const [form, setForm] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -50,12 +59,12 @@ export default function EventConfiguration({
         registrationEndDate: formatDateInputValue(event.registrationEndDate),
         eventDate: formatDateInputValue(event.eventDate),
         venue: event.venue || "",
-        maxParticipants: event.maxParticipants || "",
+        maxParticipants: event.maxParticipants ?? "",
         rules: event.rules || "",
         prizes: (event.prizes || []).join(", "),
-        minTeamSize: event.teamConfig?.minTeamSize || 2,
-        maxTeamSize: event.teamConfig?.maxTeamSize || 5,
-        genderRequirement: event.teamConfig?.genderRequirement || "none",
+        minTeamSize: event.teamConfig?.minSize || 2,
+        maxTeamSize: event.teamConfig?.maxSize || 5,
+        genderRequirement: event.teamConfig?.genderRequired || "none",
         allowCrossInstitution: Boolean(event.teamConfig?.allowCrossInstitution),
       });
     }, 0);
@@ -73,7 +82,6 @@ export default function EventConfiguration({
 
   const statusButtons = [
     { status: "open", label: "Open Event", tone: "bg-blue-600 hover:bg-blue-700" },
-    { status: "ongoing", label: "Mark Ongoing", tone: "bg-amber-600 hover:bg-amber-700" },
     { status: "completed", label: "Complete Event", tone: "bg-emerald-600 hover:bg-emerald-700" },
   ];
 
@@ -84,29 +92,82 @@ export default function EventConfiguration({
 
   const handleSaveConfiguration = async (e) => {
     e.preventDefault();
+    setError("");
+
+    if (
+      form.registrationStartDate &&
+      form.registrationEndDate &&
+      form.registrationStartDate > form.registrationEndDate
+    ) {
+      setError("Registration start date must be before or same as registration end date.");
+      return;
+    }
+
+    if (
+      form.registrationEndDate &&
+      form.eventDate &&
+      form.registrationEndDate > form.eventDate
+    ) {
+      setError("Registration end date must be before or same as event date.");
+      return;
+    }
+
+    if (!form.venue.trim()) {
+      setError("Venue is required.");
+      return;
+    }
+
+    if (!form.maxParticipants || Number(form.maxParticipants) < 1) {
+      setError("Maximum participants must be greater than 0.");
+      return;
+    }
+
+    if (!form.rules.trim()) {
+      setError("Rules are required.");
+      return;
+    }
+
+    const prizes = parsePrizes(form.prizes);
+
+    if (prizes.length === 0) {
+      setError("At least one prize is required.");
+      return;
+    }
+
+    if (form.participationType === "team") {
+      const minSize = Number(form.minTeamSize);
+      const maxSize = Number(form.maxTeamSize);
+
+      if (!Number.isInteger(minSize) || minSize < 1) {
+        setError("Minimum team size must be greater than 0.");
+        return;
+      }
+
+      if (!Number.isInteger(maxSize) || maxSize < minSize) {
+        setError("Maximum team size must be greater than or equal to minimum team size.");
+        return;
+      }
+    }
 
     await onUpdateConfiguration?.({
       eventType: form.eventType,
       participationType: form.participationType,
-      registrationStartDate: form.registrationStartDate || undefined,
-      registrationEndDate: form.registrationEndDate || undefined,
-      eventDate: form.eventDate || undefined,
-      venue: form.venue,
-      maxParticipants: form.maxParticipants ? Number(form.maxParticipants) : undefined,
-      rules: form.rules,
-      prizes: form.prizes
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
+      registrationStartDate: toDateTimeValue(form.registrationStartDate),
+      registrationEndDate: toDateTimeValue(form.registrationEndDate),
+      eventDate: toDateTimeValue(form.eventDate),
+      venue: form.venue.trim(),
+      maxParticipants: Number(form.maxParticipants),
+      rules: form.rules.trim(),
+      prizes,
       teamConfig:
         form.participationType === "team"
           ? {
-              minTeamSize: Number(form.minTeamSize),
-              maxTeamSize: Number(form.maxTeamSize),
-              genderRequirement: form.genderRequirement,
+              minSize: Number(form.minTeamSize),
+              maxSize: Number(form.maxTeamSize),
+              genderRequired: form.genderRequirement,
               allowCrossInstitution: Boolean(form.allowCrossInstitution),
             }
-          : undefined,
+          : null,
     });
   };
 
@@ -171,7 +232,7 @@ export default function EventConfiguration({
               <div className="text-xs uppercase tracking-wide text-slate-400">Participation Rules</div>
               <div className="mt-2 text-sm text-slate-700">
                 {event.participationType === "team"
-                  ? `${event.teamConfig?.minTeamSize || 1}-${event.teamConfig?.maxTeamSize || 1} members`
+                  ? `${event.teamConfig?.minSize || 1}-${event.teamConfig?.maxSize || 1} members`
                   : "Individual event"}
               </div>
             </div>
@@ -194,6 +255,11 @@ export default function EventConfiguration({
             <div className="mb-4 text-sm text-slate-500">
               Update the live setup details for this event.
             </div>
+            {error ? (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                {error}
+              </div>
+            ) : null}
             <div className="grid gap-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
@@ -205,7 +271,7 @@ export default function EventConfiguration({
                     onChange={setField("eventType")}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-violet-300"
                   >
-                    {["technical", "cultural", "sports", "academic", "other"].map((type) => (
+                    {["technical", "cultural", "sports", "other"].map((type) => (
                       <option key={type} value={type}>
                         {type}
                       </option>
@@ -235,7 +301,7 @@ export default function EventConfiguration({
                   <div className="grid gap-3 md:grid-cols-2">
                     <input
                       type="number"
-                      min={2}
+                      min={1}
                       value={form.minTeamSize}
                       onChange={setField("minTeamSize")}
                       placeholder="Min team size"
@@ -243,7 +309,7 @@ export default function EventConfiguration({
                     />
                     <input
                       type="number"
-                      min={2}
+                      min={1}
                       value={form.maxTeamSize}
                       onChange={setField("maxTeamSize")}
                       placeholder="Max team size"
@@ -328,6 +394,7 @@ export default function EventConfiguration({
                   </label>
                   <input
                     type="number"
+                    min={1}
                     value={form.maxParticipants}
                     onChange={setField("maxParticipants")}
                     placeholder="Max participants"

@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 @Getter
 @Setter
@@ -19,6 +20,7 @@ import lombok.Setter;
                 @UniqueConstraint(columnNames = "email")
         }
 )
+@SuperBuilder
 public class Admin extends BaseUser{
     @NotBlank(message = "Admin_Id is required")
     @Column(nullable = false, unique = true)

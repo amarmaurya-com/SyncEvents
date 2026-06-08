@@ -16,6 +16,7 @@ import {
   updateEventStatus,
   updateRegistrationStatus,
   updateTeamStatus,
+  normalizeEvent,
 } from "../services/coordinatorService.js";
 import {
   getCoordinatorSummary,
@@ -56,22 +57,35 @@ export default function useCoordinatorData() {
   const [error, setError] = useState("");
 
   const loadSummary = useCallback(async () => {
-    const [summaryData, eventsData] = await Promise.all([
-      getCoordinatorSummary(),
-      getAssignedEvents(),
-    ]);
+    const eventsData = await getAssignedEvents();
+    const summaryData = await getCoordinatorSummary().catch(() => null);
 
-    const assignedEvents = eventsData.events || [];
-    setSummary(summaryData);
+    const assignedEvents = Array.isArray(eventsData) ? eventsData : eventsData.events || [];
+    setSummary(
+      summaryData || {
+        summary: {
+          assignedEvents: assignedEvents.length,
+          byStatus: {},
+          totalParticipants: 0,
+          participationRate: 0,
+          certificatesIssued: 0,
+        },
+        pendingTasks: {
+          certificateGenerationPending: 0,
+          winnerDeclarationsPending: 0,
+          incompleteEvents: 0,
+        },
+      }
+    );
     setEvents(assignedEvents);
 
     const nextSelectedEventId = getDefaultSelectedEvent(assignedEvents, selectedEventId);
     setSelectedEventId(nextSelectedEventId);
 
-    return nextSelectedEventId;
+    return { nextSelectedEventId, assignedEvents };
   }, [selectedEventId]);
 
-  const loadEventData = useCallback(async (eventId) => {
+  const loadEventData = useCallback(async (eventId, sourceEvents = []) => {
     if (!eventId) {
       setWorkspace(null);
       setEventAnalytics(null);
@@ -89,15 +103,15 @@ export default function useCoordinatorData() {
 
     try {
       const [
-        workspaceData,
-        eventAnalyticsData,
-        attendanceData,
-        certificateData,
-        breakdownData,
-        registrationsData,
-        teamsData,
-        winnersData,
-      ] = await Promise.all([
+        workspaceResult,
+        eventAnalyticsResult,
+        attendanceResult,
+        certificateResult,
+        breakdownResult,
+        registrationsResult,
+        teamsResult,
+        winnersResult,
+      ] = await Promise.allSettled([
         getCoordinatorWorkspace(eventId),
         getEventAnalytics(eventId),
         getEventAttendanceAnalytics(eventId),
@@ -108,7 +122,30 @@ export default function useCoordinatorData() {
         getEventWinners(eventId),
       ]);
 
-      setWorkspace(workspaceData);
+      const fallbackEvent = sourceEvents.find((event) => event._id === eventId) || null;
+      const workspaceData =
+        workspaceResult.status === "fulfilled"
+          ? workspaceResult.value
+          : { event: fallbackEvent, tasks: [] };
+      const eventAnalyticsData =
+        eventAnalyticsResult.status === "fulfilled" ? eventAnalyticsResult.value : null;
+      const attendanceData = attendanceResult.status === "fulfilled" ? attendanceResult.value : null;
+      const certificateData =
+        certificateResult.status === "fulfilled" ? certificateResult.value : null;
+      const breakdownData = breakdownResult.status === "fulfilled" ? breakdownResult.value : null;
+      const registrationsData =
+        registrationsResult.status === "fulfilled" ? registrationsResult.value : { registrations: [] };
+      const teamsData = teamsResult.status === "fulfilled" ? teamsResult.value : { teams: [] };
+      const winnersData = winnersResult.status === "fulfilled" ? winnersResult.value : null;
+
+      setWorkspace(
+        workspaceData?.event
+          ? {
+              ...workspaceData,
+              event: normalizeEvent(workspaceData.event),
+            }
+          : workspaceData
+      );
       setEventAnalytics(eventAnalyticsData);
       setAttendanceAnalytics(attendanceData);
       setCertificateAnalytics(certificateData);
@@ -129,8 +166,10 @@ export default function useCoordinatorData() {
     setError("");
 
     try {
-      const nextSelectedEventId = await loadSummary();
-      await loadEventData(nextSelectedEventId);
+      const { nextSelectedEventId, assignedEvents } = await loadSummary();
+      if (nextSelectedEventId) {
+        await loadEventData(nextSelectedEventId, assignedEvents);
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load coordinator dashboard.");
       throw err;
@@ -150,9 +189,9 @@ export default function useCoordinatorData() {
   const selectEvent = useCallback(
     async (eventId) => {
       setSelectedEventId(eventId);
-      await loadEventData(eventId);
+      await loadEventData(eventId, events);
     },
-    [loadEventData]
+    [events, loadEventData]
   );
 
   const runAction = useCallback(

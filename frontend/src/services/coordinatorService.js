@@ -1,8 +1,49 @@
 import api from "./api.js";
 
+const STATUS_FROM_API = {
+  DRAFT: "draft",
+  PUBLISHED: "open",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+};
+
+const STATUS_TO_API = {
+  draft: "DRAFT",
+  open: "PUBLISHED",
+  completed: "COMPLETED",
+  cancelled: "CANCELLED",
+};
+
+const lower = (value) => (typeof value === "string" ? value.toLowerCase() : value);
+
+export const normalizeEvent = (event) =>
+  event
+    ? {
+        ...event,
+        eventType: lower(event.eventType),
+        participationType: lower(event.participationType),
+        status: STATUS_FROM_API[event.status] || lower(event.status),
+        coordinators: (event.coordinators || []).map((coordinator) => ({
+          ...coordinator,
+          role: lower(coordinator.role),
+          gender: lower(coordinator.gender),
+        })),
+      }
+    : event;
+
+const normalizeEvents = (data) =>
+  Array.isArray(data)
+    ? data.map(normalizeEvent)
+    : {
+        ...data,
+        events: (data?.events || []).map(normalizeEvent),
+      };
+
+const toApiStatus = (status) => STATUS_TO_API[status] || status;
+
 export const getAssignedEvents = async () => {
   const { data } = await api.get("/events");
-  return data;
+  return normalizeEvents(data);
 };
 
 export const getEventRegistrations = async (eventId) => {
@@ -16,13 +57,15 @@ export const getEventTeams = async (eventId) => {
 };
 
 export const updateEventStatus = async (eventId, status) => {
-  const { data } = await api.patch(`/events/${eventId}/status`, { status });
-  return data;
+  const { data } = await api.patch(`/events/${eventId}/status`, {
+    status: toApiStatus(status),
+  });
+  return normalizeEvent(data);
 };
 
 export const updateEventConfiguration = async (eventId, payload) => {
   const { data } = await api.patch(`/events/${eventId}/configuration`, payload);
-  return data;
+  return normalizeEvent(data);
 };
 
 export const updateRegistrationStatus = async (eventId, registrationId, status) => {

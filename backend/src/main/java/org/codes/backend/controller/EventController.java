@@ -4,6 +4,9 @@ import jakarta.validation.Valid;
 import org.codes.backend.dto.EventConfigRequest;
 import org.codes.backend.dto.EventRequest;
 import org.codes.backend.dto.EventResponse;
+import org.codes.backend.dto.RegistrationResponse;
+import org.codes.backend.dto.StatusUpdateRequest;
+import org.codes.backend.dto.TeamResponse;
 import org.codes.backend.model.BaseUser;
 import org.codes.backend.model.Roles;
 import org.codes.backend.service.AuthService;
@@ -66,7 +69,7 @@ public class EventController {
     @PreAuthorize("hasAnyRole('ADMIN', 'COORDINATOR')")
     public ResponseEntity<EventResponse> updateConfiguration(
             @PathVariable Integer eventId,
-            @RequestBody EventConfigRequest request) {
+            @Valid @RequestBody EventConfigRequest request) {
         return ResponseEntity.ok(eventService.updateConfiguration(eventId, request));
     }
 
@@ -102,6 +105,56 @@ public class EventController {
             @PathVariable Integer eventId,
             @PathVariable Integer coordinatorId) {
         return ResponseEntity.ok(eventService.removeCoordinator(eventId, coordinatorId));
+    }
+
+    @GetMapping("/{eventId}/registrations")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINATOR')")
+    public Map<String, List<RegistrationResponse>> getEventRegistrations(@PathVariable Integer eventId) {
+        return Map.of("registrations", eventService.getEventRegistrations(eventId));
+    }
+
+    @GetMapping("/{eventId}/teams")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINATOR')")
+    public Map<String, List<TeamResponse>> getEventTeams(@PathVariable Integer eventId) {
+        return Map.of("teams", eventService.getEventTeams(eventId));
+    }
+
+    @PatchMapping("/{eventId}/registrations/{registrationId}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINATOR')")
+    public RegistrationResponse updateRegistrationStatus(
+            @PathVariable Integer eventId,
+            @PathVariable Integer registrationId,
+            @RequestBody StatusUpdateRequest request
+    ) {
+        return eventService.updateRegistrationStatus(eventId, registrationId, request.status());
+    }
+
+    @PatchMapping("/{eventId}/teams/{teamId}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINATOR')")
+    public TeamResponse updateTeamStatus(
+            @PathVariable Integer eventId,
+            @PathVariable Integer teamId,
+            @RequestBody StatusUpdateRequest request
+    ) {
+        return eventService.updateTeamStatus(eventId, teamId, request.status());
+    }
+
+    @DeleteMapping("/{eventId}/registrations/{registrationId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINATOR')")
+    public RegistrationResponse removeRegistration(
+            @PathVariable Integer eventId,
+            @PathVariable Integer registrationId
+    ) {
+        return eventService.removeRegistration(eventId, registrationId);
+    }
+
+    @DeleteMapping("/{eventId}/teams/{teamId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINATOR')")
+    public TeamResponse removeTeam(
+            @PathVariable Integer eventId,
+            @PathVariable Integer teamId
+    ) {
+        return eventService.removeTeam(eventId, teamId);
     }
 
     private BaseUser getAuthenticatedUser(Authentication authentication) {

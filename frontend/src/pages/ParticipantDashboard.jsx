@@ -98,9 +98,10 @@ function EventDetailModal({ event, onClose }) {
 
         {event.participationType === "team" && event.teamConfig ? (
           <div className="mt-3 rounded-xl bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
-            Team size: {event.teamConfig.minTeamSize}–{event.teamConfig.maxTeamSize} members
-            {event.teamConfig.genderRequirement && event.teamConfig.genderRequirement !== "none"
-              ? ` · ${event.teamConfig.genderRequirement}`
+            Team size: {event.teamConfig.minSize || event.teamConfig.minTeamSize}–{event.teamConfig.maxSize || event.teamConfig.maxTeamSize} members
+            {(event.teamConfig.genderRequired || event.teamConfig.genderRequirement) &&
+            (event.teamConfig.genderRequired || event.teamConfig.genderRequirement) !== "none"
+              ? ` · ${event.teamConfig.genderRequired || event.teamConfig.genderRequirement}`
               : ""}
           </div>
         ) : null}
@@ -122,8 +123,8 @@ function TeamModal({
   const [studentId, setStudentId] = useState("");
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [error, setError] = useState("");
-  const minTeamSize = event?.teamConfig?.minTeamSize || 1;
-  const maxTeamSize = event?.teamConfig?.maxTeamSize || 1;
+  const minTeamSize = event?.teamConfig?.minSize || event?.teamConfig?.minTeamSize || 1;
+  const maxTeamSize = event?.teamConfig?.maxSize || event?.teamConfig?.maxTeamSize || 1;
   const totalMembers = selectedMembers.length + 1;
   const hasReachedMaxMembers = totalMembers >= maxTeamSize;
   const meetsTeamSizeRequirement = totalMembers >= minTeamSize && totalMembers <= maxTeamSize;
@@ -368,7 +369,7 @@ export default function ParticipantDashboard() {
         getMyTeams(),
         getMyCertificates(),
       ]);
-      setEvents(eventsData.events || []);
+      setEvents(Array.isArray(eventsData) ? eventsData : eventsData.events || []);
       setRegistrations(registrationsData.registrations || []);
       setTeams(teamsData.teams || []);
       setCertificates(certificatesData.certificates || []);
@@ -510,7 +511,7 @@ export default function ParticipantDashboard() {
     setError("");
     try {
       const data = await searchParticipants(studentId, eventId);
-      setTeamSearchResults(data.users || []);
+      setTeamSearchResults(data.participants || data.users || []);
     } catch (searchError) {
       setError(searchError.response?.data?.message || "Unable to search participants.");
       setTeamSearchResults([]);
@@ -584,7 +585,7 @@ export default function ParticipantDashboard() {
               <path d="M2 11c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
             </svg>
             {event.participationType === "team"
-              ? `Team · ${event.teamConfig?.minTeamSize || 1}–${event.teamConfig?.maxTeamSize || 1} members`
+              ? `Team · ${event.teamConfig?.minSize || event.teamConfig?.minTeamSize || 1}–${event.teamConfig?.maxSize || event.teamConfig?.maxTeamSize || 1} members`
               : "Individual"}
           </div>
         </div>
@@ -732,7 +733,6 @@ export default function ParticipantDashboard() {
             <option value="technical">Technical</option>
             <option value="cultural">Cultural</option>
             <option value="sports">Sports</option>
-            <option value="academic">Academic</option>
             <option value="other">Other</option>
           </select>
         </div>
