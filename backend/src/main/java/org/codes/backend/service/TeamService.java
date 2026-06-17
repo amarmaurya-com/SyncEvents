@@ -215,7 +215,9 @@ public class TeamService {
                 authService.toUserResponse(team.getLeader()),
                 members,
                 team.getStatus().name().toLowerCase(Locale.ROOT),
-                team.getCreatedAt()
+                team.getCreatedAt(),
+                false,
+                null
         );
     }
 

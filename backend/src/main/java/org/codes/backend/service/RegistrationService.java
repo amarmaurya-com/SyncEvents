@@ -159,7 +159,9 @@ public class RegistrationService {
                 eventService.toEventResponse(registration.getEvent()),
                 authService.toUserResponse(registration.getParticipant()),
                 registration.getStatus().name().toLowerCase(Locale.ROOT),
-                registration.getRegisteredAt()
+                registration.getRegisteredAt(),
+                false,
+                null
         );
     }
 }

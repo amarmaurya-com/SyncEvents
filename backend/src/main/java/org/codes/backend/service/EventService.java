@@ -3,10 +3,7 @@ package org.codes.backend.service;
 import jakarta.validation.Valid;
 import org.codes.backend.dto.*;
 import org.codes.backend.model.*;
-import org.codes.backend.repository.CoordinatorRepo;
-import org.codes.backend.repository.EventRepo;
-import org.codes.backend.repository.EventTeamRepo;
-import org.codes.backend.repository.RegistrationRepo;
+import org.codes.backend.repository.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,20 +22,26 @@ public class EventService {
     private final CoordinatorRepo coordinatorRepo;
     private final RegistrationRepo registrationRepo;
     private final EventTeamRepo eventTeamRepo;
+    private final CertificateRepo certificateRepo;
     private final AuthService authService;
+    private final EventWinnerRepo eventWinnerRepo;
+
 
     public EventService(
             EventRepo eventRepo,
             CoordinatorRepo coordinatorRepo,
             RegistrationRepo registrationRepo,
             EventTeamRepo eventTeamRepo,
-            AuthService authService
+            CertificateRepo certificateRepo,
+            AuthService authService, EventWinnerRepo eventWinnerRepo
     ) {
         this.eventRepo = eventRepo;
         this.coordinatorRepo = coordinatorRepo;
         this.registrationRepo = registrationRepo;
         this.eventTeamRepo = eventTeamRepo;
+        this.certificateRepo = certificateRepo;
         this.authService = authService;
+        this.eventWinnerRepo = eventWinnerRepo;
     }
 
     @Transactional(readOnly = true)
@@ -75,6 +78,12 @@ public class EventService {
 
     public void deleteEvent(Integer eventId) {
         Event event = findEventById(eventId);
+        eventWinnerRepo.deleteByEvent_Id(eventId);
+        certificateRepo.deleteByEvent_Id(eventId);
+        registrationRepo.deleteByEvent_Id(eventId);
+        eventTeamRepo.deleteAll(eventTeamRepo.findByEvent_Id(eventId));
+        event.getCoordinators().clear();
+        event.getPrizes().clear();
         eventRepo.delete(event);
     }
 
@@ -315,12 +324,21 @@ public class EventService {
     }
 
     private RegistrationResponse toRegistrationResponse(Registration registration) {
+        Integer rank = eventWinnerRepo
+                .findByEvent_IdAndParticipant_Id(
+                        registration.getEvent().getId(),
+                        registration.getParticipant().getId()
+                )
+                .map(EventWinner::getRank)
+                .orElse(null);
         return new RegistrationResponse(
                 registration.getId(),
                 toEventResponse(registration.getEvent()),
                 authService.toUserResponse(registration.getParticipant()),
                 registration.getStatus().name().toLowerCase(Locale.ROOT),
-                registration.getRegisteredAt()
+                registration.getRegisteredAt(),
+                rank != null,
+                rank
         );
     }
 
@@ -335,6 +353,14 @@ public class EventService {
                         .toList()
         );
 
+        Integer rank = eventWinnerRepo
+                .findByEvent_IdAndTeam_Id(
+                        team.getEvent().getId(),
+                        team.getId()
+                )
+                .map(EventWinner::getRank)
+                .orElse(null);
+
         return new TeamResponse(
                 team.getId(),
                 toEventResponse(team.getEvent()),
@@ -342,7 +368,9 @@ public class EventService {
                 authService.toUserResponse(team.getLeader()),
                 members,
                 team.getStatus().name().toLowerCase(Locale.ROOT),
-                team.getCreatedAt()
+                team.getCreatedAt(),
+                rank != null,
+                rank
         );
     }
 

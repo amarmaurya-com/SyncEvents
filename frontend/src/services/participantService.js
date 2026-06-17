@@ -8,6 +8,13 @@ const STATUS_FROM_API = {
 };
 
 const lower = (value) => (typeof value === "string" ? value.toLowerCase() : value);
+const toId = (value) => {
+  if (value && typeof value === "object") {
+    return value._id ?? value.id;
+  }
+
+  return value;
+};
 
 const normalizeEvent = (event) =>
   event
@@ -59,7 +66,15 @@ export const searchParticipants = async (studentId, eventId) => {
 };
 
 export const createTeam = async (payload) => {
-  const { data } = await api.post("/teams", payload);
+  const normalizedPayload = {
+    ...payload,
+    eventId: toId(payload.eventId),
+    members: (payload.members || [])
+      .map(toId)
+      .filter((memberId) => memberId !== undefined && memberId !== null),
+  };
+
+  const { data } = await api.post("/teams", normalizedPayload);
   return data;
 };
 

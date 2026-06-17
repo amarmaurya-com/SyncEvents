@@ -4,14 +4,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.LocalDateTime;
 
-public record RegistrationResponse(
+public record ParticipantWinnerResponse(
         Integer id,
-        EventResponse eventId,
         UserResponse participantId,
-        String status,
-        LocalDateTime registeredAt,
-        Boolean isWinner,
-        Integer rank
+        Integer rank,
+        LocalDateTime createdAt
 ) {
     @JsonProperty("_id")
     public Integer getIdForClient() {

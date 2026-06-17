@@ -5,16 +5,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public record TeamResponse(
+public record TeamWinnerResponse(
         Integer id,
-        EventResponse eventId,
         String teamName,
         UserResponse leaderId,
         List<UserResponse> members,
-        String status,
-        LocalDateTime createdAt,
-        Boolean isWinner,
-        Integer rank
+        Integer rank,
+        LocalDateTime createdAt
 ) {
     @JsonProperty("_id")
     public Integer getIdForClient() {

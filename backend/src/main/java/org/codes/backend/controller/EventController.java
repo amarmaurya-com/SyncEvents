@@ -1,16 +1,12 @@
 package org.codes.backend.controller;
 
 import jakarta.validation.Valid;
-import org.codes.backend.dto.EventConfigRequest;
-import org.codes.backend.dto.EventRequest;
-import org.codes.backend.dto.EventResponse;
-import org.codes.backend.dto.RegistrationResponse;
-import org.codes.backend.dto.StatusUpdateRequest;
-import org.codes.backend.dto.TeamResponse;
+import org.codes.backend.dto.*;
 import org.codes.backend.model.BaseUser;
 import org.codes.backend.model.Roles;
 import org.codes.backend.service.AuthService;
 import org.codes.backend.service.EventService;
+import org.codes.backend.service.WinnerService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,10 +23,12 @@ public class EventController {
 
     private final EventService eventService;
     private final AuthService authService;
+    private final WinnerService winnerService;
 
-    public EventController(EventService eventService, AuthService authService) {
+    public EventController(EventService eventService, AuthService authService, WinnerService winnerService) {
         this.eventService = eventService;
         this.authService = authService;
+        this.winnerService = winnerService;
     }
 
     @GetMapping
@@ -163,5 +161,29 @@ public class EventController {
         }
         return authService.findByEmail(authentication.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+    }
+
+    @GetMapping("/{eventId}/winners")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINATOR')")
+    public WinnersResponse getEventWinners(@PathVariable Integer eventId) {
+        return winnerService.getEventWinners(eventId);
+    }
+
+    @PostMapping("/{eventId}/winners")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINATOR')")
+    public WinnersResponse assignWinner(
+            @PathVariable Integer eventId,
+            @RequestBody WinnerRequest request
+    ) {
+        return winnerService.assignWinner(eventId, request);
+    }
+
+    @DeleteMapping("/{eventId}/winners")
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINATOR')")
+    public WinnersResponse clearWinner(
+            @PathVariable Integer eventId,
+            @RequestBody WinnerRequest request
+    ) {
+        return winnerService.clearWinner(eventId, request);
     }
 }

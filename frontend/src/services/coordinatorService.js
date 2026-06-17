@@ -14,6 +14,20 @@ const STATUS_TO_API = {
   cancelled: "CANCELLED",
 };
 
+const ATTENDANCE_STATUS_FROM_API = {
+  REGISTERED: "registered",
+  APPROVED: "participated",
+  REJECTED: "absent",
+  CANCELLED: "withdrawn",
+};
+
+const ATTENDANCE_STATUS_TO_API = {
+  registered: "REGISTERED",
+  participated: "APPROVED",
+  absent: "REJECTED",
+  withdrawn: "CANCELLED",
+};
+
 const lower = (value) => (typeof value === "string" ? value.toLowerCase() : value);
 
 export const normalizeEvent = (event) =>
@@ -40,6 +54,36 @@ const normalizeEvents = (data) =>
       };
 
 const toApiStatus = (status) => STATUS_TO_API[status] || status;
+const toApiAttendanceStatus = (status) => ATTENDANCE_STATUS_TO_API[status] || status;
+
+const normalizeAttendanceStatus = (status) =>
+  ATTENDANCE_STATUS_FROM_API[status] || ATTENDANCE_STATUS_FROM_API[status?.toUpperCase?.()] || lower(status);
+
+const normalizeRegistration = (registration) =>
+  registration
+    ? {
+        ...registration,
+        status: normalizeAttendanceStatus(registration.status),
+      }
+    : registration;
+
+const normalizeTeam = (team) =>
+  team
+    ? {
+        ...team,
+        status: normalizeAttendanceStatus(team.status),
+      }
+    : team;
+
+const normalizeRegistrationsResponse = (data) => ({
+  ...data,
+  registrations: (data?.registrations || []).map(normalizeRegistration),
+});
+
+const normalizeTeamsResponse = (data) => ({
+  ...data,
+  teams: (data?.teams || []).map(normalizeTeam),
+});
 
 export const getAssignedEvents = async () => {
   const { data } = await api.get("/events");
@@ -48,12 +92,12 @@ export const getAssignedEvents = async () => {
 
 export const getEventRegistrations = async (eventId) => {
   const { data } = await api.get(`/events/${eventId}/registrations`);
-  return data;
+  return normalizeRegistrationsResponse(data);
 };
 
 export const getEventTeams = async (eventId) => {
   const { data } = await api.get(`/events/${eventId}/teams`);
-  return data;
+  return normalizeTeamsResponse(data);
 };
 
 export const updateEventStatus = async (eventId, status) => {
@@ -70,26 +114,26 @@ export const updateEventConfiguration = async (eventId, payload) => {
 
 export const updateRegistrationStatus = async (eventId, registrationId, status) => {
   const { data } = await api.patch(`/events/${eventId}/registrations/${registrationId}/status`, {
-    status,
+    status: toApiAttendanceStatus(status),
   });
-  return data;
+  return normalizeRegistration(data);
 };
 
 export const updateTeamStatus = async (eventId, teamId, status) => {
   const { data } = await api.patch(`/events/${eventId}/teams/${teamId}/status`, {
-    status,
+    status: toApiAttendanceStatus(status),
   });
-  return data;
+  return normalizeTeam(data);
 };
 
 export const removeParticipantFromEvent = async (eventId, registrationId) => {
   const { data } = await api.delete(`/events/${eventId}/registrations/${registrationId}`);
-  return data;
+  return normalizeRegistration(data);
 };
 
 export const removeTeamFromEvent = async (eventId, teamId) => {
   const { data } = await api.delete(`/events/${eventId}/teams/${teamId}`);
-  return data;
+  return normalizeTeam(data);
 };
 
 export const getEventWinners = async (eventId) => {

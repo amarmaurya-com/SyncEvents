@@ -473,7 +473,7 @@ export default function EventConfiguration({
             ) : (
               <div className="space-y-3">
                 {workspace.tasks.map((task) => (
-                  <div
+                  <div  
                     key={task.id}
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
                   >

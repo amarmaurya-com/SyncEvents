@@ -7,10 +7,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 @Repository
 public interface EventTeamRepo extends JpaRepository<EventTeam, Integer> {
+    List<EventTeam> findByEvent_Id(Integer eventId);
+
     @Query("""
             select distinct team from EventTeam team
             left join team.members member
@@ -34,4 +37,6 @@ public interface EventTeamRepo extends JpaRepository<EventTeam, Integer> {
             @Param("participantId") Integer participantId,
             @Param("cancelledStatus") TeamStatus cancelledStatus
     );
+
+    List<EventTeam> findByEvent_IdAndStatus(Integer eventId, TeamStatus teamStatus);
 }

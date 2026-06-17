@@ -34,7 +34,31 @@ const formatCertificateType = (value) => {
 
 const isEventRegistrationOpen = (event) => {
   if (typeof event?.registration?.open === "boolean") return event.registration.open;
-  return ["open", "ongoing"].includes(event?.status);
+  if (!["open", "ongoing"].includes(event?.status)) return false;
+
+  const now = new Date();
+  const registrationStartDate = event?.registrationStartDate
+    ? new Date(event.registrationStartDate)
+    : null;
+  const registrationEndDate = event?.registrationEndDate
+    ? new Date(event.registrationEndDate)
+    : null;
+
+  if (registrationStartDate && now < registrationStartDate) return false;
+  if (registrationEndDate && now > registrationEndDate) return false;
+
+  return true;
+};
+
+const getApiErrorMessage = (error, fallback) => {
+  const data = error?.response?.data;
+
+  if (typeof data === "string" && data.trim()) return data;
+  if (data?.message) return data.message;
+  if (data?.error) return data.error;
+  if (data?.detail) return data.detail;
+
+  return error?.message || fallback;
 };
 
 const statusStyles = {
@@ -128,6 +152,7 @@ function TeamModal({
   const totalMembers = selectedMembers.length + 1;
   const hasReachedMaxMembers = totalMembers >= maxTeamSize;
   const meetsTeamSizeRequirement = totalMembers >= minTeamSize && totalMembers <= maxTeamSize;
+  const getId = (item) => item?._id ?? item?.id;
 
   if (!event) return null;
 
@@ -137,7 +162,8 @@ function TeamModal({
       return;
     }
     setSelectedMembers((current) => {
-      if (current.some((member) => member._id === user._id)) return current;
+      const userId = getId(user);
+      if (current.some((member) => getId(member) === userId)) return current;
       return [...current, user];
     });
     setStudentId("");
@@ -145,7 +171,7 @@ function TeamModal({
   };
 
   const removeMember = (memberId) => {
-    setSelectedMembers((current) => current.filter((member) => member._id !== memberId));
+    setSelectedMembers((current) => current.filter((member) => getId(member) !== memberId));
   };
 
   const handleSearch = async (e) => {
@@ -167,9 +193,9 @@ function TeamModal({
     setError("");
     try {
       await onCreate({
-        eventId: event._id,
+        eventId: getId(event),
         teamName: teamName.trim(),
-        members: selectedMembers.map((member) => member._id),
+        members: selectedMembers.map(getId),
       });
     } catch (submitError) {
       setError(submitError.message);
@@ -257,10 +283,11 @@ function TeamModal({
                   </div>
                 ) : (
                   searchResults.map((user) => {
-                    const alreadyAdded = selectedMembers.some((m) => m._id === user._id);
+                    const userId = getId(user);
+                    const alreadyAdded = selectedMembers.some((member) => getId(member) === userId);
                     return (
                       <div
-                        key={user._id}
+                        key={userId}
                         className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5"
                       >
                         <div>
@@ -303,7 +330,7 @@ function TeamModal({
 
               {selectedMembers.map((member) => (
                 <div
-                  key={member._id}
+                  key={getId(member)}
                   className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-2.5"
                 >
                   <div>
@@ -312,7 +339,7 @@ function TeamModal({
                   </div>
                   <button
                     type="button"
-                    onClick={() => removeMember(member._id)}
+                    onClick={() => removeMember(getId(member))}
                     className="rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
                   >
                     Remove
@@ -513,7 +540,7 @@ export default function ParticipantDashboard() {
       const data = await searchParticipants(studentId, eventId);
       setTeamSearchResults(data.participants || data.users || []);
     } catch (searchError) {
-      setError(searchError.response?.data?.message || "Unable to search participants.");
+      setError(getApiErrorMessage(searchError, "Unable to search participants."));
       setTeamSearchResults([]);
     } finally {
       setTeamSearchLoading(false);
@@ -530,7 +557,7 @@ export default function ParticipantDashboard() {
       await loadParticipantData();
       setActiveView("my-events");
     } catch (actionError) {
-      const message = actionError.response?.data?.message || "Unable to create team.";
+      const message = getApiErrorMessage(actionError, "Unable to create team.");
       setError(message);
       throw new Error(message, { cause: actionError });
     } finally {
