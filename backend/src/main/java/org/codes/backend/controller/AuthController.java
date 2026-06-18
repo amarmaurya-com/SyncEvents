@@ -9,6 +9,7 @@ import org.codes.backend.dto.RegisterParticipantRequest;
 import org.codes.backend.model.BaseUser;
 import org.codes.backend.service.AuthService;
 import org.codes.backend.service.JwtService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -28,10 +29,19 @@ public class AuthController {
 
     private final AuthService authService;
     private final JwtService jwtService;
+    private final boolean cookieSecure;
+    private final String cookieSameSite;
 
-    public AuthController(AuthService authService, JwtService jwtService) {
+    public AuthController(
+            AuthService authService,
+            JwtService jwtService,
+            @Value("${app.cookie.secure:false}") boolean cookieSecure,
+            @Value("${app.cookie.same-site:Lax}") String cookieSameSite
+    ) {
         this.authService = authService;
         this.jwtService = jwtService;
+        this.cookieSecure = cookieSecure;
+        this.cookieSameSite = cookieSameSite;
     }
 
     @PostMapping("/register")
@@ -55,7 +65,7 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<MessageResponse> logout(HttpServletRequest request) {
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, expiredCookie(request.isSecure()).toString())
+                .header(HttpHeaders.SET_COOKIE, expiredCookie().toString())
                 .body(new MessageResponse("Logged out successfully."));
     }
 
@@ -70,18 +80,18 @@ public class AuthController {
     private ResponseCookie authCookie(String token) {
         return ResponseCookie.from(AUTH_COOKIE, token)
                 .httpOnly(true)
-                .secure(false)
-                .sameSite("Lax")
+                .secure(cookieSecure)
+                .sameSite(cookieSameSite)
                 .path("/")
                 .maxAge(Duration.ofDays(1))
                 .build();
     }
 
-    private ResponseCookie expiredCookie(boolean secure) {
+    private ResponseCookie expiredCookie() {
         return ResponseCookie.from(AUTH_COOKIE, "")
                 .httpOnly(true)
-                .secure(secure)
-                .sameSite("Lax")
+                .secure(cookieSecure)
+                .sameSite(cookieSameSite)
                 .path("/")
                 .maxAge(Duration.ZERO)
                 .build();
