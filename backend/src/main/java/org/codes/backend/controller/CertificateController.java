@@ -1,6 +1,7 @@
 package org.codes.backend.controller;
 
 import org.codes.backend.dto.CertificateBatchRequest;
+import org.codes.backend.dto.CertificateBatchResponse;
 import org.codes.backend.dto.CertificateResponse;
 import org.codes.backend.service.CertificateService;
 import org.springframework.http.HttpHeaders;
@@ -30,11 +31,11 @@ public class CertificateController {
 
     @PostMapping("/events/{eventId}/batch")
     @PreAuthorize("hasAnyRole('ADMIN', 'COORDINATOR')")
-    public Map<String, List<CertificateResponse>> generateBatch(
+    public CertificateBatchResponse generateBatch(
             @PathVariable Integer eventId,
             @RequestBody CertificateBatchRequest request
     ) {
-        return Map.of("certificates", certificateService.generateBatch(eventId, request));
+        return certificateService.generateBatch(eventId, request);
     }
 
     @GetMapping("/{certificateId}/download")

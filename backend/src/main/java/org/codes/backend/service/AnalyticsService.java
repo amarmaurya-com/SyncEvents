@@ -171,8 +171,8 @@ public class AnalyticsService {
     public Map<String, Object> getEventCertificates(Integer eventId) {
         findEvent(eventId);
 
-        long participationEligible = participatedPeopleForEvent(eventId);
-        long achievementEligible = eventWinnerRepo.findByEvent_IdOrderByRankAsc(eventId).size();
+        long participationEligible = participationCertificateEligiblePeople(eventId);
+        long achievementEligible = achievementCertificateEligiblePeople(eventId);
         long participationGenerated = certificateRepo.countByEvent_IdAndCertificateType(eventId, CertificateType.PARTICIPATION);
         long achievementGenerated = certificateRepo.countByEvent_IdAndCertificateType(eventId, CertificateType.ACHIEVEMENT);
 
@@ -336,7 +336,8 @@ public class AnalyticsService {
     }
 
     private boolean certificatePending(Integer eventId) {
-        return participatedPeopleForEvent(eventId) > certificateRepo.countByEvent_Id(eventId);
+        return participationCertificateEligiblePeople(eventId) + achievementCertificateEligiblePeople(eventId)
+                > certificateRepo.countByEvent_Id(eventId);
     }
 
     private List<Participant> participantsForEvent(Integer eventId) {
@@ -355,6 +356,60 @@ public class AnalyticsService {
 
         return Stream.concat(individualParticipants.stream(), teamParticipants.stream())
                 .distinct()
+                .toList();
+    }
+
+    private long participationCertificateEligiblePeople(Integer eventId) {
+        Set<Integer> winnerParticipantIds = winnerParticipantIds(eventId);
+
+        return participatedParticipantsForEvent(eventId).stream()
+                .filter(participant -> !winnerParticipantIds.contains(participant.getId()))
+                .count();
+    }
+
+    private long achievementCertificateEligiblePeople(Integer eventId) {
+        return winnerParticipantIds(eventId).size();
+    }
+
+    private List<Participant> participatedParticipantsForEvent(Integer eventId) {
+        Map<Integer, Participant> participants = new LinkedHashMap<>();
+
+        registrationRepo.findByEvent_IdAndStatus(eventId, RegistrationStatus.APPROVED)
+                .forEach(registration -> participants.putIfAbsent(
+                        registration.getParticipant().getId(),
+                        registration.getParticipant()
+                ));
+
+        eventTeamRepo.findByEvent_IdAndStatus(eventId, TeamStatus.APPROVED)
+                .forEach(team -> teamParticipants(team).forEach(participant -> participants.putIfAbsent(
+                        participant.getId(),
+                        participant
+                )));
+
+        return new ArrayList<>(participants.values());
+    }
+
+    private Set<Integer> winnerParticipantIds(Integer eventId) {
+        Set<Integer> participantIds = new LinkedHashSet<>();
+
+        eventWinnerRepo.findByEvent_IdOrderByRankAsc(eventId).forEach(winner -> {
+            if (winner.getParticipant() != null) {
+                participantIds.add(winner.getParticipant().getId());
+            }
+
+            if (winner.getTeam() != null) {
+                teamParticipants(winner.getTeam()).forEach(participant -> participantIds.add(participant.getId()));
+            }
+        });
+
+        return participantIds;
+    }
+
+    private List<Participant> teamParticipants(EventTeam team) {
+        return Stream.concat(
+                        Stream.of(team.getLeader()),
+                        team.getMembers().stream().map(TeamMember::getParticipant)
+                )
                 .toList();
     }
 
